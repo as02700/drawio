@@ -4,7 +4,8 @@
   "description": "draw.io desktop",
   "main": "electron.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "gulp": "gulp"
   },
   "repository": {
     "type": "git",
@@ -26,7 +27,11 @@
     "commander": "^2.15.1",
     "electron-log": "^2.2.14"
   },
-  "devDependencies": {
+  "__devDependencies": {
     "electron": "^2.0.2"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-concat": "^2.6.1"
   }
 }
