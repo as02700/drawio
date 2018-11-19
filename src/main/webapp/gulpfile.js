@@ -42,12 +42,32 @@ function join(separator, xs) {
   return xs.join(separator);
 }
 
+function concatP(p1, p2) {
+  return p1.then(function(a) {
+    return p2.then(function(b) {
+      return a.concat(b);
+    });
+  });
+}
+
+function match(reg, text) {
+  return text.match(reg);
+}
+
+function prop(name, object) {
+  return object[name];
+}
+
 gulp.task('clean', function() {
   return unlink('./zz-app.bundle.js');
 });
 
 gulp.task('clean:stylesheet', function() {
   return unlink(webapp('./Graph-Stylesheet.js'));
+});
+
+gulp.task('clean:mxgraph', function() {
+  return unlink(webapp('mxgraph.js'));
 });
 
 gulp.task('stylesheet', function() {
@@ -70,11 +90,42 @@ gulp.task('stylesheet', function() {
   .then(write.bind(null, webapp('Graph-Stylesheet.js')));
 });
 
+gulp.task('mxgraph', function() {
+  var mxgraph = webapp.bind(null, '..', '..', '..', 'etc', 'mxgraph');
+  return read(mxgraph('mxClient.js'))
+    .then(toString.bind(null, undefined))
+    .then(function(content) {
+      var deps = (match(/mxClient\.include.*/g, content) || [])
+                  .map(match.bind(null, /'(.*)'/))
+                  .filter(Boolean)
+                  .map(prop.bind(null, 1));
+
+      var index = content.indexOf('// PREPROCESSOR-REMOVE-START');
+
+      return Promise.all([].concat(
+        content.slice(0, index),
+        deps.map(function(x) {
+          return read(mxgraph.apply(null, x.split('/').filter(Boolean).slice(1)));
+        }).reduce(
+          concatP,
+          Promise.resolve([])
+        )
+      ));
+    })
+    .then(function(tuple) {
+      var xs = [].concat(tuple[0], tuple[1]);
+      return write('./mxgraph.js', xs.join('\n'));
+    })
+});
+
 gulp.task('bundle', function() {
   var mxgraph = to.bind(null, 'mxgraph');
   var diagramly = to.bind(null, 'diagramly');
   var sidebar = diagramly.bind(null, 'sidebar');
   var util = diagramly.bind(null, 'util');
+
+  console.log('//>>', fs.existsSync(webapp('mxgraph.js')));
+
   return gulp.src(
     [
       // lib
@@ -86,7 +137,8 @@ gulp.task('bundle', function() {
       to('deflate', 'base64.js'),
       to('diagramly', 'Init.js'),
       mxgraph('Init.js'),
-      webapp('..', '..', '..', 'etc', 'mxgraph', 'mxClient.js'),
+      // webapp('..', '..', '..', 'etc', 'mxgraph', 'mxClient.js'),
+      webapp('mxgraph.js'),
       to('jscolor', 'jscolor.js'),
 
       // graph-editor
@@ -194,4 +246,4 @@ gulp.task('bundle', function() {
   );
 });
 
-gulp.task('default', ['clean', 'stylesheet', 'bundle', 'clean:stylesheet']);
+gulp.task('default', ['clean', 'clean:mxgraph', 'clean:stylesheet', 'stylesheet', 'mxgraph', 'bundle']);
